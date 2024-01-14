@@ -1,3 +1,4 @@
+import math
 import sys
 import timeit
 
@@ -55,7 +56,8 @@ def run_test_case(test: dict) -> None:
     print(f"{''.join(['-' for _ in range(96)])}")
     message = test['given']
     preview: str = f'{message[:24]}[...]{message[-24:]}' if len(message) > 48 else message
-    print(f'Testing input "{preview}" of length {len(message)}.')
+    Writer.info(preview, before='Input: ')
+    Writer.info('%d bytes' % len(message), before='Length: ')
 
     def func() -> None:
         result = tiger.TigerHash().hash(test['given'])
@@ -67,9 +69,9 @@ def run_test_case(test: dict) -> None:
 
     elapsed_time = timeit.timeit(stmt=func, number=1)
     if 'bytes' in test:
-        print(f'Hash function throughput: {test["bytes"] / elapsed_time}')
+        Writer.info('%d bytes/s' % math.floor(test["bytes"] / elapsed_time), before='Throughput: ')
     else:
-        print(f'Hash function throughput: {len(test["given"]) / elapsed_time}')
+        Writer.info('%d bytes/s' % math.floor(len(test["given"]) / elapsed_time), before='Throughput: ')
     Writer.info('%.10f seconds' % elapsed_time, before='Elapsed time: ')
 
 
