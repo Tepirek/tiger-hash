@@ -88,23 +88,69 @@ def run_tests() -> None:
             run_test_case(test_config)
 
 
+def run_avalanche_effect_test() -> None:
+    k = input('Enter bit number to be flipped (1-192): ')
+    if not 1 <= int(k) <= 192:
+        print('Invalid bit number')
+        return
+    k = int(k) - 1
+
+    output_file = "dieharder.txt"
+
+    tiger_hash = tiger.TigerHash()
+    m = tiger_hash.hash('')
+
+    with open(output_file, 'wb') as file:
+        r = math.ceil(pow(2, 30) * 8 / 192)
+        start = timeit.default_timer()
+        for i in range(r):
+            # for i in range(1):
+
+            H_m = tiger_hash.hash(m)
+            m_prim = int(m, 16)
+            m_prim ^= (1 << (192 - k - 1))
+            m_prim = hex(m_prim)[2:]
+
+            H_m_prim = tiger_hash.hash(m_prim)
+
+            XOR = hex(int(H_m, 16) ^ int(H_m_prim, 16))[2:]
+            # file.write(bytes.fromhex(XOR.zfill(48)))
+            file.write(XOR.encode('latin-1'))
+
+            m = H_m_prim
+
+            if i != 0 and (i % 10000 == 0 or i == r - 1):
+                end = timeit.default_timer()
+                elapsed_time = end - start
+                current = i * 100 / (r - 1)
+                remaining = elapsed_time * (100 - current) / current
+                print(f'Progress: %02.2f%% Remaining: %.10f seconds' % (current, remaining))
+
+    print(f'Dieharder input file saved to {output_file}')
+    return
+
+
 def main() -> None:
-    hash_length = input('Enter hash length (1-192): ')
-    if not hash_length.isdigit() or not 1 <= int(hash_length) <= 192:
+    hash_length = input('Enter hash length in bytes (1-24): ')
+    if not hash_length.isdigit() or not 1 <= int(hash_length) <= 24:
         print('Invalid hash length.')
         return
     filename = input('Enter filename: ')
     with open(filename, 'r', encoding='latin-1') as f:
         print(f'Hashing {filename}...')
-        print(f'Hash length: {hash_length}')
+        Writer.info(f"{hash_length} {'byte' if hash_length == '1' else 'bytes'}", before='Hash length: ')
         contents = f.read()
         result = tiger.TigerHash().hash(contents)
-        print(f'Hash: {result[:int(hash_length)]}')
-        open('hash.txt', 'w', encoding='latin-1').write(f'{result[:int(hash_length)]}\n')
+        binary_result = bin(int(result, 16))[2:][:int(hash_length) * 8]
+        result = hex(int(binary_result, 2))[2:]
+        Writer.info(result, before='Hash: ')
+        open('hash.txt', 'w', encoding='latin-1').write(f'{result}\n')
 
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == 'test':
         run_tests()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'avalanche_effect_test':
+        run_avalanche_effect_test()
     else:
         main()
