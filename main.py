@@ -1,5 +1,7 @@
 import math
+import secrets
 import sys
+import threading
 import timeit
 
 import tiger
@@ -130,6 +132,116 @@ def run_avalanche_effect_test() -> None:
     return
 
 
+class MyThread(threading.Thread):
+    def __init__(self, thread_id, hash_length, h, counts: dict, result: dict, threads: list):
+        super(MyThread, self).__init__()
+        self.thread_id = thread_id
+        self.hash_length = hash_length
+        self.h = h
+        self.counts = counts
+        self.result = result
+        self.threads = threads
+        self.do_run = True
+
+    def run(self):
+        while self.do_run:
+            success = False
+            solution = None
+            msg = None
+            counter = 0
+
+            tiger_hash = tiger.TigerHash()
+            binary_result = bin(int(self.h, 16))[2:][:int(self.hash_length) * 8]
+            result_h = hex(int(binary_result, 2))[2:]
+
+            start = timeit.default_timer()
+            elapsed_time = 0
+
+            while elapsed_time < 3600 and self.result.get('solution') is None:
+                counter = counter + 1
+                msg = str(secrets.token_bytes(100))
+                h_m = tiger_hash.hash(msg)
+                binary_h_m = bin(int(h_m, 16))[2:][:int(self.hash_length) * 8]
+                h_m = hex(int(binary_h_m, 2))[2:]
+
+                end = timeit.default_timer()
+                elapsed_time = end - start
+
+                if counter % 10000 == 0:
+                    print(f"Thread {self.thread_id} counter: {counter} current hash: {h_m}")
+
+                if h_m == result_h:
+                    success = True
+                    solution = result_h
+                    break
+
+            if success:
+                self.counts[self.thread_id] = counter
+                self.result["solution"] = solution
+                print(f"Thread {self.thread_id} found solution: {result_h} == {solution}")
+                print(f"Message: {msg}")
+                print(f"Elapsed time: {elapsed_time}")
+                # Zatrzymujemy pozostałe wątki
+                print("Stopping threads...")
+                for thread in self.threads:
+                    assert isinstance(thread, MyThread)
+                    if thread != threading.current_thread():
+                        thread.stop()
+                self.do_run = False
+                for thread in self.threads:
+                    print(f"Thread {thread.thread_id} is alive: {thread.is_alive()}")
+            else:
+                for thread in threading.enumerate():
+                    if thread == threading.current_thread():
+                        thread.do_run = False
+
+    def stop(self):
+        self.do_run = False
+        self.join()
+
+
+def ataki() -> None:
+    # Tworzymy i uruchamiamy 10 wątków
+    counts: dict = {}
+    result: dict = {}
+    threads = []
+    tiger_hash = tiger.TigerHash()
+
+    hash_length = 1
+    message = str(secrets.token_bytes(100))
+    h = tiger_hash.hash(message)
+
+    while 1:
+        print('Starting threads...')
+        for i in range(8):
+            thread = MyThread(i, hash_length, h, counts, result, threads)
+            thread.start()
+            threads.append(thread)
+
+        # Czekamy na zakończenie wszystkich wątków
+        for thread in threads:
+            thread.join()
+
+        print('ALL FINISHED')
+
+        if result.get('solution'):
+            Writer.success('Passed!', before='Result: ')
+            Writer.info('%d' % hash_length, before='Hash length: ')
+            Writer.info(message, before='Message: ')
+            print(counts)
+            print(result)
+            # Writer.info('%d' % counts, before='Counter: ')
+            hash_length = hash_length + 1
+            counts: dict = {}
+            result: dict = {}
+            threads = []
+            result = {}
+
+        else:
+            print("No solution found")
+            break
+
+
 def main() -> None:
     hash_length = input('Enter hash length in bytes (1-24): ')
     if not hash_length.isdigit() or not 1 <= int(hash_length) <= 24:
@@ -152,5 +264,7 @@ if __name__ == '__main__':
         run_tests()
     elif len(sys.argv) > 1 and sys.argv[1] == 'avalanche_effect_test':
         run_avalanche_effect_test()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'atak':
+        ataki()
     else:
         main()
