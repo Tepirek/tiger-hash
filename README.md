@@ -206,3 +206,77 @@ przeprowadzonych testów. Spośród 114 testów zaledwie 4 z nich zakończyły s
 się wynikiem `FAIL`. Na podstawie otrzymanych wyników można stwierdzić, że zaimplementowana funkcja skrótu nie posiada
 znaczących wad. Dla bitu wejściowego `k = 69` możemy stwierdzić, że zaimplementowana funkcja skrótu wykazuje efekt
 lawinowości, a wygenerowany ciąg znaków można uznać za losowy.
+
+## Laboratorium 3
+
+Celem zadania było przeprowadzenie ataku znajdującego pierwszy przeciwobraz funkcji skrótu oraz ustalenie dla jakiej długości skrótu znalezienie pierwszego przeciwobrazu jest wykonalne dla konkretnej funkcji skrótu
+W tym celu dodana została dodatkowa funkcjonalność programu. Uruchomienie go z argumentem `atak` spowoduje uruchomienie eksperymentu przeprowadzającego atak na pierwszy przeciwobraz.
+
+### Opis działania programu
+
+uruchamiane jest 10 wątków wykonujących następujące zadanie:
+
+1. Wygenerowanie losowego skrótu o ustalonej długości h
+2. Generowanie losowej wiadomości m o określonej długości oraz wyznaczanie jej skrótu aż do otrzymania H(m) = h lub przekroczenia dopuszczalnego czasu
+3. Zliczanie ilości prób do momentu znalezienia wiadomości o zadanym skrócie lub wyczerpania limitu czasu
+
+W momencie znalezienia dla danej dlugosci przeciwobrazu, program zwiększa długość wiadomośći o 1 bajt oraz powtarza atak.
+
+
+### Implementacja
+
+```commandline
+def ataki() -> None:
+    # Tworzymy i uruchamiamy 10 wątków
+    counts: dict = {}
+    result: dict = {}
+    threads = []
+    tiger_hash = tiger.TigerHash()
+
+    hash_length = 1
+    message = str(secrets.token_bytes(100))
+    h = tiger_hash.hash(message)
+
+    while 1:
+        print('Starting threads...')
+        for i in range(8):
+            thread = MyThread(i, hash_length, h, counts, result, threads)
+            thread.start()
+            threads.append(thread)
+
+        # Czekamy na zakończenie wszystkich wątków
+        for thread in threads:
+            thread.join()
+
+        print('ALL FINISHED')
+
+        if result.get('solution'):
+            Writer.success('Passed!', before='Result: ')
+            Writer.info('%d' % hash_length, before='Hash length: ')
+            Writer.info(message, before='Message: ')
+            print(counts)
+            print(result)
+            # Writer.info('%d' % counts, before='Counter: ')
+            hash_length = hash_length + 1
+            counts: dict = {}
+            result: dict = {}
+            threads = []
+            result = {}
+
+        else:
+            print("No solution found")
+            break
+```
+
+### Oszacowana liczba skrótów
+Za akceptowalny czas przyjęta zostałą godzina (3600 sekund).
+Bazując na podstawie wcześniej ustalonych przepustowości program jest w stanie dokonać 29265437 prób na wiadomościach o dlugosci 100b
+, 4193971 prób dla wiadomości o długości 1024b oraz 5474 prób dla wiadomości o długości 1 048 576b
+Bazując na tych informacjach, przeprowadzenie pozytywnego ataku w ciągu godziny może się udaćdla danych większych on 1024b ale znacznie mniejszych od 1 048 576b
+
+
+
+### Generowanie losowego skrótu h
+
+Generowanie losowego skrótu h o ustalonej długości odbywa się za pomocą funkcji:
+`secrets.token_bytes(DŁUGOSC WIADOMOSCI)`
